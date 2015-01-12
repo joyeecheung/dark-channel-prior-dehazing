@@ -47,7 +47,7 @@ def get_radiance(I, tmin=0.1, Amax=220, w=15, p=0.001, omega=0.95):
     Idark = get_dark_channel(I, w)
     A = get_atmosphere(I, Idark, p)
     t = get_transmission(I, A, Idark, omega, w)
-    t = np.repeat(np.maximum(t, tmin), 3).reshape(m, n, 3)
+    t = np.repeat(t, 3).reshape(m, n, 3)
     return (I - A)/t + A
 
 
