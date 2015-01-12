@@ -23,3 +23,11 @@ def get_dark_channel(data, w):
         darkch[i, j] = np.min(padded[i:i + w - 1, j:j + w - 1, :])
     return darkch
 
+
+def get_atmosphere(data, darkch, p):
+    # check 4.4
+    m, n = darkch.shape
+    flatdata = data.reshape(m * n, 3)
+    flatdark = darkch.ravel()
+    searchidx = (-flatdark).argsort()[:m * n * p]  # find top m*n*p indexes
+    return np.max(flatdata.take(searchidx, axis=0), axis=0)
