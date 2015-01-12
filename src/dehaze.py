@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import numpy as np
+from PIL import Image
 
 def get_dark_channel(data, w):
     """Get dark channels from image data (RGB images only).
@@ -30,20 +32,26 @@ def get_atmosphere(data, darkch, p):
     flatdata = data.reshape(m * n, 3)
     flatdark = darkch.ravel()
     searchidx = (-flatdark).argsort()[:m * n * p]  # find top m*n*p indexes
-    return np.max(flatdata.take(searchidx, axis=0), axis=0)
+    return np.mean(flatdata.take(searchidx, axis=0), axis=0)
 
 def get_transmission(data, atmosphere, darkch, omega, w):
     # equation 12
-    newdata = data.astype(np.float64) / atmosphere
+    newdata = data / atmosphere
     return 1 - omega * get_dark_channel(newdata, w)
 
 
-def get_radiance(I, w=15, p=0.001, omega=0.95):
+def get_radiance(I, tmin=0.1, Amax=220, w=15, p=0.001, omega=0.95):
     # equation 16
+    I = I.astype(np.float64)
     m, n, _ = I.shape
     Idark = get_dark_channel(I, w)
-    A = get_atmosphere(data, darkch, p)
-    t = get_transmission(data, A, Idark, omega, w)
-    t = np.repeat(t, 3).reshape(m, n, 3)
-    return (I.astype(np.float64) - A)/t + A
+    A = get_atmosphere(I, Idark, p)
+    t = get_transmission(I, A, Idark, omega, w)
+    t = np.repeat(np.maximum(t, tmin), 3).reshape(m, n, 3)
+    return (I - A)/t + A
 
+
+def dehaze_naive(im):
+    radiance = get_radiance(np.asarray(im))
+    radiance = np.maximum(np.minimum(radiance, 255), 0)
+    return Image.fromarray(radiance.astype(np.uint8))
