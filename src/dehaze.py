@@ -31,3 +31,9 @@ def get_atmosphere(data, darkch, p):
     flatdark = darkch.ravel()
     searchidx = (-flatdark).argsort()[:m * n * p]  # find top m*n*p indexes
     return np.max(flatdata.take(searchidx, axis=0), axis=0)
+
+def get_transmission(data, atmosphere, darkch, omega, w):
+    # equation 12
+    newdata = data.astype(np.float64) / atmosphere
+    return 1 - omega * get_dark_channel(newdata, w)
+
