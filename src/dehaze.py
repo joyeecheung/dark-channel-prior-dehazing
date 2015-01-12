@@ -37,3 +37,13 @@ def get_transmission(data, atmosphere, darkch, omega, w):
     newdata = data.astype(np.float64) / atmosphere
     return 1 - omega * get_dark_channel(newdata, w)
 
+
+def get_radiance(I, w=15, p=0.001, omega=0.95):
+    # equation 16
+    m, n, _ = I.shape
+    Idark = get_dark_channel(I, w)
+    A = get_atmosphere(data, darkch, p)
+    t = get_transmission(data, A, Idark, omega, w)
+    t = np.repeat(t, 3).reshape(m, n, 3)
+    return (I.astype(np.float64) - A)/t + A
+
