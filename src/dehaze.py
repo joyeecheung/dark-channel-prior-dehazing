@@ -40,7 +40,7 @@ def get_atmosphere(data, darkch, p):
     flatdata = data.reshape(m * n, 3)
     flatdark = darkch.ravel()
     searchidx = (-flatdark).argsort()[:m * n * p]  # find top m*n*p indexes
-    return np.mean(flatdata.take(searchidx, axis=0), axis=0)
+    return np.min(flatdata.take(searchidx, axis=0), axis=0)
 
 
 def get_transmission(data, atmosphere, darkch, omega, w):
@@ -72,7 +72,7 @@ def boxfilter(data, r):
     return dest
 
 
-def guided_filter(I, p, r=20, eps=1e-3):
+def guided_filter(I, p, r=40, eps=1e-3):
     M, N = p.shape
     base = boxfilter(np.ones((M, N)), r)
 
@@ -104,17 +104,19 @@ def guided_filter(I, p, r=20, eps=1e-3):
     return q
 
 
-def get_radiance(I, tmin=0.1, w=41, p=0.001,
+def get_radiance(I, tmin=0.1, Amax=210, w=121, p=0.001,
                  omega=0.95, guided=False):
     # equation 16
     m, n, _ = I.shape
     Idark = get_dark_channel(I, w)
     A = get_atmosphere(I, Idark, p)
+    A = np.minimum(A, Amax)
     t = get_transmission(I, A, Idark, omega, w)
     if guided:
         t = guided_filter(I, t)
     t = np.maximum(t, tmin)
     t = np.repeat(t, 3).reshape(m, n, 3)
+    print A
     return (I - A) / t + A
 
 

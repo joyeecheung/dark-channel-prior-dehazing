@@ -7,10 +7,12 @@ from PIL import Image
 
 SRC_DIR = 'img'
 DEST_DIR = 'result'
-IMG_NAMES = ('canon7.jpg', 'cones.jpg', 'IMG_8763.jpg', 'IMG_8766.jpg',
-             'ny12_photo.jpg', 'ny17_photo.jpg', 'pumpkins.jpg',
-             'stadium1.jpg', 'toys.jpg', 'yellowmountain.jpg')
-
+# IMG_NAMES = ('canon7.jpg', 'cones.jpg', 'IMG_8763.jpg', 'IMG_8766.jpg',
+#              'ny12_photo.jpg', 'ny17_photo.jpg', 'pumpkins.jpg',
+#              'stadium1.jpg', 'toys.jpg', 'yellowmountain.jpg')
+# IMG_NAMES = ('IMG_8763.jpg', 'IMG_8766.jpg','ny12_photo.jpg', 'ny17_photo.jpg')
+# IMG_NAMES = ('test_sky.jpg', 'test_sky2.jpg')
+IMG_NAMES = ('test_sky.png', )
 
 def get_filenames():
     """Return a named tuple of filenames(absolute filepath)."""
