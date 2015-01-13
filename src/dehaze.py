@@ -30,17 +30,18 @@ def get_dark_channel(data, w):
     padded = np.pad(data, ((w / 2, w / 2), (w / 2, w / 2), (0, 0)), 'edge')
     darkch = np.zeros((M, N))
     for i, j in np.ndindex(darkch.shape):
-        darkch[i, j] = np.min(padded[i:i + w - 1, j:j + w - 1, :])
+        darkch[i, j] = np.min(padded[i:i + w, j:j + w, :])
     return darkch
 
 
 def get_atmosphere(data, darkch, p):
     # check 4.4
-    m, n = darkch.shape
-    flatdata = data.reshape(m * n, 3)
+    M, N = darkch.shape
+    flatdata = data.reshape(M * N, 3)
     flatdark = darkch.ravel()
-    searchidx = (-flatdark).argsort()[:m * n * p]  # find top m*n*p indexes
-    return np.min(flatdata.take(searchidx, axis=0), axis=0)
+    searchidx = (-flatdark).argsort()[:M * N * p]  # find top m*n*p indexes
+    print 'atmosphere light region:', [(i/N, i%N) for i in searchidx]
+    return np.max(flatdata.take(searchidx, axis=0), axis=0)
 
 
 def get_transmission(data, atmosphere, darkch, omega, w):
@@ -104,32 +105,48 @@ def guided_filter(I, p, r=40, eps=1e-3):
     return q
 
 
-def get_radiance(I, tmin=0.1, Amax=210, w=121, p=0.001,
+def get_radiance(I, tmin=0.1, Amax=220, w=15, p=0.0001,
                  omega=0.95, guided=False):
     # equation 16
     m, n, _ = I.shape
     Idark = get_dark_channel(I, w)
     A = get_atmosphere(I, Idark, p)
-    A = np.minimum(A, Amax)
-    t = get_transmission(I, A, Idark, omega, w)
+    oldt = t = get_transmission(I, A, Idark, omega, w)
+    print 'transmission between', t.min(), t.max()
+    print 'atmosphere', A
     if guided:
         t = guided_filter(I, t)
-    t = np.maximum(t, tmin)
-    t = np.repeat(t, 3).reshape(m, n, 3)
-    print A
-    return (I - A) / t + A
+    newt = np.maximum(t, tmin)
+    tiledt = np.zeros_like(I)
+    tiledt[:, :, R] = tiledt[:, :, G] = tiledt[:, :, B] = newt
+    return Idark, oldt, newt, (I - A) / tiledt + A
 
 
 def dehaze(im, guided=True):
-    radiance = get_radiance(np.asarray(im, dtype=np.float64),
-                            guided=guided)
-    radiance = np.maximum(np.minimum(radiance, 255), 0)
-    return Image.fromarray(radiance.astype(np.uint8))
+    data = np.asarray(im, dtype=np.float64)
+    darkch, oldt, t, radiance = get_radiance(data, guided=guided)
+    white = np.full_like(darkch, 255)
+
+    def to_img(raw):
+        # cut = np.maximum(np.minimum(raw, 255), 0)
+        print raw.max(), raw.min()
+        if len(raw.shape) == 3:
+            r, g, b = [raw[:, :, ch] for ch in xrange(3)]
+            rm, gm, bm = [Image.fromarray(ch).convert('L') for ch in (r, g, b)]
+            return Image.merge('RGB', (rm, gm, bm))
+        else:
+            return Image.fromarray(raw).convert('L')
+
+    return [to_img(raw) for raw in (darkch, white * oldt, white * t, radiance)]
 
 
 if __name__ == '__main__':
     for src, dest in get_filenames():
         print 'processing', src
         im = Image.open(src)
-        dehaze(im).save(dest)
+        dark, oldt, t, radiance = dehaze(im)
+        dark.save(dest % 'dark')
+        oldt.save(dest % 'oldt')
+        t.save(dest % 't')
+        radiance.save(dest % 'radiance')
         print 'saved', dest
