@@ -34,6 +34,7 @@ def get_atmosphere(data, darkch, p):
     searchidx = (-flatdark).argsort()[:m * n * p]  # find top m*n*p indexes
     return np.mean(flatdata.take(searchidx, axis=0), axis=0)
 
+
 def get_transmission(data, atmosphere, darkch, omega, w):
     # equation 12
     newdata = data / atmosphere
@@ -55,3 +56,26 @@ def dehaze_naive(im):
     radiance = get_radiance(np.asarray(im))
     radiance = np.maximum(np.minimum(radiance, 255), 0)
     return Image.fromarray(radiance.astype(np.uint8))
+
+
+def boxfilter(data, r):
+    """
+    Parameters
+    ----------
+    data: a single channel/gray image with data normalized to [0,1]
+    r: window radius
+    """
+    M, N = data.shape
+    dest = np.zeros((M, N))
+
+    sumY = np.cumsum(data, axis=0)
+    dest[:r+1] = sumY[r: 2*r+1]
+    dest[r+1:M-r] = sumY[2*r+1:] - sumY[:M-2*r-1]
+    dest[-r:] = np.tile(sumY[-1], (r, 1)) - sumY[M-2*r-1:M-r-1]
+
+    sumX = np.cumsum(dest, axis=1)
+    dest[:, :r+1] = sumX[:, r:2*r+1]
+    dest[:, r+1:N-r] = sumX[:, 2*r+1:] - sumX[:, :N-2*r-1]
+    dest[:, -r:] = np.tile(sumX[:, -1][:, None], (1, r)) - sumX[:, N-2*r-1:N-r-1]
+    return dest
+
