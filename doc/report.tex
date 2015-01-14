@@ -1,0 +1,350 @@
+\documentclass{article}
+%\usepackage[a4paper,margin=2.2cm,footskip=.5cm]{geometry}
+\usepackage{fullpage}
+%-----------------Hyperlink Packages--------------------
+\usepackage{hyperref}
+\hypersetup{
+	 colorlinks   = true,
+     citecolor    = black,
+     linkcolor    = black,
+     urlcolor     = black
+}
+%-----------------Figure Packages--------------------
+\usepackage{graphicx}                       % For figures
+\usepackage{stfloats}
+\usepackage[tight,footnotesize]{subfigure}  % Create subfigures, ie 1A, 1B
+%\usepackage{epsfig} % for postscript graphics files
+%------------------Math Packages------------------------
+\usepackage{amssymb,amsmath}
+\usepackage{textcomp}
+\usepackage{mdwmath}
+\usepackage{mdwtab}
+\usepackage{eqparbox}
+%------------------Table Packages-----------------------
+\usepackage{rotating}                     % Used to rotate tables
+\usepackage{array}                        % Fixed column widths for tables
+%-----------------Algorithm Packages--------------------
+\usepackage{listings}                     % Source code
+\usepackage{algorithm}                    % Pseudo Code
+\usepackage[noend]{algpseudocode}
+%---------------------------------------------------------
+
+\begin{document}
+
+\title {
+	DIP Final Project \\
+	Haze Removal
+}
+
+\author {
+	Qiuyi Zhang 12330402 \\
+	\href{mailto:joyeec9h3@gmail.com}{joyeec9h3@gmail.com}
+}
+
+\date {
+	\today
+}
+
+\maketitle
+\tableofcontents
+
+
+\section{Introduction}
+
+\subsection{Haze Removal Using Dark Channel Prior}
+In computer vision and computer graphics, the formation of a hazy image is usually described by the following model:
+
+$$
+\mathbf{I}(\mathbf{x}) = \mathbf{J}(\mathbf{x})t(\mathbf{x}) + \mathbf{A}(1 - t(\mathbf{x}))
+$$
+
+where $\mathbf{I}$ is the observed intensity, $\mathbf{J}$ is the scene radiance, $\mathbf{A}$ is the global atmospheric light, and $t$ is the medium transmission. With this model, the goal of haze removal is to recover $\mathbf{J}$, $\mathbf{A}$, and $t$ when $\mathbf{I}$ is given.
+
+In \cite{he2009single}, He proposed an approach to use the dark channel prior for haze removal. For an image $\mathbf{J}$, the dark channel of $\mathbf{J}$ is defined as
+
+$$
+J^{dark}(\mathbf{x}) = min_{c \in \{r,g,b\}}( min_{\mathbf{y} \in \Omega(\mathbf{x})}(J^c(\mathbf{y})))
+$$
+
+When $\mathbf{J}$ is a haze-free outdoor image, the intensity of $J^{dark}$ in the non-sky region is close to zero. Using this prior, the transmission can be estimated by:
+
+$$
+\tilde{t}(\mathbf{x}) = 1 - \omega min_{c}( min_{\mathbf{y} \in \Omega(\mathbf{x})}(\frac{I^c(\mathbf{y})}{A^c}))
+$$
+
+where $\omega \in (0, 1]$ is a constant parameter for keeping a certain amount of haze to make the output more natural Here $min_{c}( min_{\mathbf{y} \in \Omega(\mathbf{x})}(\frac{I^c(\mathbf{y})}{A^c}))$ is actually the dark channel of the normalized haze image $\frac{I^c(\mathbf{y})}{A^c}$.
+
+To automatically obtain $\mathbf{A}$ from the input image, we can first pick the top $p\%$ brightest pixels in the dark channel, then, for each color channel, we chose the one with the highest intensity in the input image $\mathbf{I}$ as its atmospheric light.
+
+Now that we have $\tilde{t}(\mathbf{x})$, $\mathbf{A}$ and $\mathbf{I}$, we can recover the haze-free image with:
+
+$$
+\mathbf{J}(\mathbf{x}) = \frac{\mathbf{I}(\mathbf{x}) - \mathbf{A}}{max(\tilde{t}(\mathbf{x}),t_0)} + \mathbf{A}
+$$
+
+where $t_0$ is a lower bound for $t$ to preserve a certain amount of haze in dense haze regions.
+
+\subsection{Guided filter}
+
+Since a transmission map is just an alpha map, we can apply soft matting to refine the estimated transmission. An efficient approach, as proposed in \cite{he2010guided}, is to use the input image $\mathbf{I}$ to guide the filter $\tilde{t}(\mathbf{x})$.
+
+Define $q$ as a linear transform of a color image $\mathbf{I}$ in a window $\omega_k$ with radius $r$ centered at the pixel $k$:
+
+$$
+q_i = \mathbf{a}_k^T\mathbf{I}_i + b_k, \forall i \in \omega_k
+$$
+
+where $\mathbf{I}_k$ is a $3 \times 1$ color vector, $\mathbf{a}_k$ is a $3 \times 1$ coefficient vector, $b_k$ is a scalar coefficient. For a filter $p$, the coefficients $\mathbf{a}$ and $b$ can be computed with:
+
+\begin{align*}
+\mathbf{a}_k &= (\Sigma_k + \epsilon U)^{-1}(\frac{1}{|\omega|}\sum_{i \in \omega_k}\mathbf{I}_i p_i - \mu_k \bar{p}_k) \\
+b_k &= \bar{p}_k - \mathbf{a}_k^T\mu_k \\
+q_i &= \bar{\mathbf{a}}_i^T\mathbf{I}_i + \bar{b}_i
+\end{align*}
+
+where $\Sigma_k$ is the covariance matrix of $\mathbf{I}$ in $\omega_k$, $\epsilon$ is regularization parameter preventing $\mathbf{a}_k$ from being too large, $U$ is the $3 \times 3$ identity matrix, $\mu_k$ is the mean of $\mathbf{I}$ in $\omega_k$, $|\omega|$ is the number of pixels in $\omega_k$, and $\bar{p}_k$ is the mean of $p$ in $\omega_k$. Then, the resulting $q$ is the desired filter under the guidance of $\mathbf{I}$.
+
+\section{Implementation}
+
+Algorithm~\ref{alg:hr} describes how to remove the haze from the image using the dark channel prior. To refine the transmission map, we implement Algorithm~\ref{alg:gf}.
+
+\begin{algorithm}[H]
+\centering
+\caption{Haze Removal Using Dark Channel Prior}
+\label{alg:hr}
+  \begin{algorithmic}[1]
+    \Function{Dehaze}{$\mathbf{I}$, $t_{min}$, $A_{max}$, $w$, $p$, $\omega$, $r$, $\epsilon$}
+        \Comment{$\mathbf{I}$ is the hazy image}
+        \State Compute $\mathbf{I}^{dark}$ with $\mathbf{I}^{dark}(\mathbf{x}) = min_{c \in \{r,g,b\}}( min_{\mathbf{y} \in \Omega(\mathbf{x})}(I^c(\mathbf{y})))$
+        \State Find the indexes $\mathbf{D}$ for highest $p\%$  pixels in $\mathbf{I}^{dark}$
+        \State Compute atmosphere light $\mathbf{A}$ with $\mathbf{A}_c = max_{\mathbf{d} \in  \mathbf{D}}(\mathbf{I}_c(\mathbf{d}))$
+        \State Threshold $\mathbf{A}$ with $A_{max}$
+        \State Estimate transmission $\tilde{t}$ with $\tilde{t}(\mathbf{x}) \gets 1 - \omega min_{c}( min_{\mathbf{y} \in \Omega(\mathbf{x})}(\frac{I^c(\mathbf{y})}{A^c}))$
+        \State $\tilde{t} \gets$ \Call{Guided Filter}{$\mathbf{I}$, $\tilde{t}$, $r$, $\epsilon$}
+        \State Recover $\mathbf{J}$ with $\mathbf{J}(\mathbf{x}) = \frac{\mathbf{I}(\mathbf{x}) - \mathbf{A}}{max(\tilde{t}(\mathbf{x}),t_0)} + \mathbf{A}$
+      \State \Return $\mathbf{J}$
+    \EndFunction
+  \end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[H]
+\centering
+\caption{Guided Filter}
+\label{alg:gf}
+  \begin{algorithmic}[1]
+    \Function{Guided Filter}{$\mathbf{I}$, $p$, $r$, $\epsilon$}
+        \For{each pixel $k$ in $p$}
+	        \State $\omega_k$ is the window with radius $r$ for pixel $k$
+	        \State Compute $\Sigma_k$, the convariance matrix of $\mathbf{I}$ in $\omega_k$
+	        \State Compute $|\omega|$, the number of pixels in $omega_k$
+	        \State Compute $\mu_k$, the mean of $\mathbf{I}$ in $\omega_k$ 
+	        \State Compute $\bar{p}_k$, the mean of $p$ in $\omega_k$
+	        \State $\mathbf{a}_k = (\Sigma_k + \epsilon U)^{-1}(\frac{1}{|\omega|}\sum_{i \in \omega_k}\mathbf{I}_i p_i - \mu_k \bar{p}_k)$
+	        \State $b_k = \bar{p}_k - \mathbf{a}_k^T\mu_k$
+	        \State $q_k = \bar{\mathbf{a}}_k^T\mathbf{I}_k + \bar{b}_k$
+        \EndFor
+      \Return $\mathbf{q}$
+    \EndFunction
+  \end{algorithmic}
+\end{algorithm}
+
+
+\section{Results and Analysis}
+
+The results in Figure~\ref{fig:result1} -~\ref{fig:result4} are generated with $t_{min} = 0.2, A_{max} = 220, w = 15, p=0.1, \omega=0.95,r=40, \epsilon=10^{-3}$. From top to bottom are the input hazy image, the dark channel, the estimated transmission map, the refined transmission map, the image dehazed with raw transmission map, and the image dehazed with refined transmission map.
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../img/canon7.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/cones.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/forest.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/flag.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/house-input.png}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/canon7-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/cones-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/forest-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/flag-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/house-input-dark.png}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/canon7-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/cones-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/forest-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/flag-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/house-input-rawt.png}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/canon7-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/cones-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/forest-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/flag-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/house-input-refinedt.png}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/canon7-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/cones-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/forest-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/flag-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/house-input-radiance-rawt.png}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/canon7-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/cones-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/forest-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/flag-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/house-input-radiance-refinedt.png}
+    \end{minipage}
+    \caption{From top to bottom: input hazy image, dark channel, estimated transmission map, refined transmission map, image dehazed with raw estimate, image dehazed with refined estimate}
+    \label{fig:result1}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../img/IMG_8763.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/IMG_8766.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/ny17_photo.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/pumpkins.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8763-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8766-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny17_photo-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/pumpkins-dark.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8763-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8766-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny17_photo-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/pumpkins-rawt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8763-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8766-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny17_photo-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/pumpkins-refinedt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8763-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8766-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny17_photo-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/pumpkins-radiance-rawt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8763-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/IMG_8766-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny17_photo-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/pumpkins-radiance-refinedt.jpg}
+    \end{minipage}
+    \caption{From top to bottom: input hazy image, dark channel, estimated transmission map, refined transmission map, image dehazed with raw estimate, image dehazed with refined estimate}
+    \label{fig:result2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../img/tiananmen1.png}
+        \includegraphics[height=0.18\linewidth]{../img/swan.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/toys.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/ny12_photo.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/tiananmen1-dark.png}
+        \includegraphics[height=0.18\linewidth]{../result/swan-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/toys-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny12_photo-dark.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/tiananmen1-rawt.png}
+        \includegraphics[height=0.18\linewidth]{../result/swan-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/toys-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny12_photo-rawt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/tiananmen1-refinedt.png}
+        \includegraphics[height=0.18\linewidth]{../result/swan-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/toys-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny12_photo-refinedt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/tiananmen1-radiance-rawt.png}
+        \includegraphics[height=0.18\linewidth]{../result/swan-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/toys-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny12_photo-radiance-rawt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/tiananmen1-radiance-refinedt.png}
+        \includegraphics[height=0.18\linewidth]{../result/swan-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/toys-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/ny12_photo-radiance-refinedt.jpg}
+    \end{minipage}
+    \caption{From top to bottom: input hazy image, dark channel, estimated transmission map, refined transmission map, image dehazed with raw estimate, image dehazed with refined estimate}
+    \label{fig:result3}
+
+\end{figure}
+
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../img/stadium1.jpg}
+        \includegraphics[height=0.18\linewidth]{../img/yellowmountain.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/stadium1-dark.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/yellowmountain-dark.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/stadium1-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/yellowmountain-rawt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/stadium1-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/yellowmountain-refinedt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/stadium1-radiance-rawt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/yellowmountain-radiance-rawt.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{\linewidth}
+        \centering
+        \includegraphics[height=0.18\linewidth]{../result/stadium1-radiance-refinedt.jpg}
+        \includegraphics[height=0.18\linewidth]{../result/yellowmountain-radiance-refinedt.jpg}
+    \end{minipage}
+    \caption{From top to bottom: input hazy image, dark channel, estimated transmission map, refined transmission map, image dehazed with raw estimate, image dehazed with refined estimate}
+    \label{fig:result4}
+\end{figure}
+
+\section{Discussion}
+
+\bibliography{dehaze}
+
+\bibliographystyle{acm}
+
+\end{document}

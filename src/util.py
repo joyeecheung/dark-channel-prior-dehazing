@@ -11,7 +11,7 @@ IMG_NAMES = ("canon7.jpg", "cones.jpg", "flag.jpg", "forest.jpg",
              "house-input.png", "IMG_8763.jpg", "IMG_8766.jpg",
              "ny12_photo.jpg", "ny17_photo.jpg", "pumpkins.jpg",
              "stadium1.jpg", "swan.jpg", "tiananmen1.png",
-             "toys.jpg", "train.bmp", "yellowmountain.jpg")
+             "toys.jpg", "yellowmountain.jpg")
 
 
 def get_filenames():

@@ -81,7 +81,7 @@ def get_transmission(I, A, darkch, omega, w):
     return 1 - omega * get_dark_channel(I / A, w)  # CVPR09, eq.12
 
 
-def dehaze_raw(I, tmin=0.3, Amax=220, w=15, p=0.0001,
+def dehaze_raw(I, tmin=0.2, Amax=220, w=15, p=0.0001,
                omega=0.95, guided=True, r=40, eps=1e-3):
     """Get the dark channel prior, atmosphere light, transmission rate
        and refined transmission rate for raw RGB image data.
