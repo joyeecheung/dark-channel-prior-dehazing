@@ -7,12 +7,11 @@ from PIL import Image
 
 SRC_DIR = 'img'
 DEST_DIR = 'result'
-# IMG_NAMES = ('canon7.jpg', 'cones.jpg', 'IMG_8763.jpg', 'IMG_8766.jpg',
-#              'ny12_photo.jpg', 'ny17_photo.jpg', 'pumpkins.jpg',
-#              'stadium1.jpg', 'toys.jpg', 'yellowmountain.jpg')
-IMG_NAMES = ('test_dark3.png', 'IMG_8763.jpg', 'IMG_8766.jpg','ny12_photo.jpg', 'ny17_photo.jpg')
-# IMG_NAMES = ('test_sky.jpg', 'test_sky2.jpg')
-# IMG_NAMES = ('test_dark1.png', 'test_dark2.png')
+IMG_NAMES = ("canon7.jpg", "cones.jpg", "flag.jpg", "forest.jpg",
+             "house-input.png", "IMG_8763.jpg", "IMG_8766.jpg",
+             "ny12_photo.jpg", "ny17_photo.jpg", "pumpkins.jpg",
+             "stadium1.jpg", "swan.jpg", "tiananmen1.png",
+             "toys.jpg", "train.bmp", "yellowmountain.jpg")
 
 
 def get_filenames():

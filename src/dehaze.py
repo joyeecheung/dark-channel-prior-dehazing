@@ -40,7 +40,7 @@ def get_atmosphere(data, darkch, p):
     flatdata = data.reshape(M * N, 3)
     flatdark = darkch.ravel()
     searchidx = (-flatdark).argsort()[:M * N * p]  # find top m*n*p indexes
-    print 'atmosphere light region:', [(i/N, i%N) for i in searchidx]
+    print 'atmosphere light region:', [(i / N, i % N) for i in searchidx]
     return np.max(flatdata.take(searchidx, axis=0), axis=0)
 
 
@@ -105,48 +105,61 @@ def guided_filter(I, p, r=40, eps=1e-3):
     return q
 
 
-def get_radiance(I, tmin=0.1, Amax=220, w=15, p=0.0001,
-                 omega=0.95, guided=False):
+def get_radiance(I, tmin=0.3, Amax=220, w=15, p=0.0001,
+                 omega=0.95, guided=True):
     # equation 16
     m, n, _ = I.shape
     Idark = get_dark_channel(I, w)
+
     A = get_atmosphere(I, Idark, p)
-    oldt = t = get_transmission(I, A, Idark, omega, w)
-    print 'transmission between', t.min(), t.max()
+    A = np.minimum(A, Amax)  # threshold A
     print 'atmosphere', A
+
+    rawt = get_transmission(I, A, Idark, omega, w)
+    print 'raw transmission rate',
+    print 'between [%.4f, %.4f]' % (rawt.min(), rawt.max())
+
+    refinedt = np.maximum(rawt, tmin)  # threshold t
     if guided:
-        t = guided_filter(I, t)
-    newt = np.maximum(t, tmin)
+        normI = (I - I.min()) / (I.max() - I.min())  # normalize I
+        refinedt = guided_filter(normI, refinedt)
+
+    print 'refined transmission rate',
+    print 'between [%.4f, %.4f]' % (refinedt.min(), refinedt.max())
+
+    # tiled to M * N * 3
     tiledt = np.zeros_like(I)
-    tiledt[:, :, R] = tiledt[:, :, G] = tiledt[:, :, B] = newt
-    return Idark, oldt, newt, (I - A) / tiledt + A
+    tiledt[:, :, R] = tiledt[:, :, G] = tiledt[:, :, B] = refinedt
+
+    return Idark, rawt, refinedt, (I - A) / tiledt + A
 
 
 def dehaze(im, guided=True):
     data = np.asarray(im, dtype=np.float64)
-    darkch, oldt, t, radiance = get_radiance(data, guided=guided)
+    darkch, rawt, t, radiance = get_radiance(data, guided=guided)
     white = np.full_like(darkch, 255)
 
     def to_img(raw):
-        # cut = np.maximum(np.minimum(raw, 255), 0)
-        print raw.max(), raw.min()
-        if len(raw.shape) == 3:
-            r, g, b = [raw[:, :, ch] for ch in xrange(3)]
-            rm, gm, bm = [Image.fromarray(ch).convert('L') for ch in (r, g, b)]
-            return Image.merge('RGB', (rm, gm, bm))
-        else:
-            return Image.fromarray(raw).convert('L')
+        cut = np.maximum(np.minimum(raw, 255), 0).astype(np.uint8)
 
-    return [to_img(raw) for raw in (darkch, white * oldt, white * t, radiance)]
+        if len(raw.shape) == 3:
+            print 'Range for each channel:'
+            for ch in xrange(3):
+                print '[%.2f, %.2f]' % (raw[:, :, ch].max(), raw[:, :, ch].min())
+            return Image.fromarray(cut)
+        else:
+            return Image.fromarray(cut)
+
+    return [to_img(raw) for raw in (darkch, white * rawt, white * t, radiance)]
 
 
 if __name__ == '__main__':
     for src, dest in get_filenames():
-        print 'processing', src
+        print 'processing', src + '...'
         im = Image.open(src)
-        dark, oldt, t, radiance = dehaze(im)
+        dark, rawt, t, radiance = dehaze(im)
         dark.save(dest % 'dark')
-        oldt.save(dest % 'oldt')
-        t.save(dest % 't')
+        rawt.save(dest % 'rawt')
+        t.save(dest % 'refinedt')
         radiance.save(dest % 'radiance')
         print 'saved', dest
