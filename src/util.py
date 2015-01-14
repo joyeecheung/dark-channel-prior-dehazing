@@ -15,12 +15,16 @@ IMG_NAMES = ("canon7.jpg", "cones.jpg", "flag.jpg", "forest.jpg",
 
 
 def get_filenames():
-    """Return a named tuple of filenames(absolute filepath)."""
+    """Return list of tuples for source and template destination
+       filenames(absolute filepath)."""
     file_dir = os.path.dirname(os.path.realpath(__file__))
     parent_dir, _ = os.path.split(file_dir)
     src_path = os.path.join(parent_dir, SRC_DIR)
     dest_path = os.path.join(parent_dir, DEST_DIR)
-    filenames = zip((os.path.join(src_path, name) for name in IMG_NAMES),
-                    (os.path.join(dest_path, name.replace('.', '-%s.'))
-                        for name in IMG_NAMES))
+    filenames = []
+    for name in IMG_NAMES:
+        base, ext = os.path.splitext(name)
+        tempname = base + '-%s' + ext
+        filenames.append((os.path.join(src_path, name),
+                          os.path.join(dest_path, tempname)))
     return filenames
