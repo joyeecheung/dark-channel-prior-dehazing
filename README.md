@@ -1,7 +1,13 @@
 ##Dependencies
 
-1. pillow
-2. Numpy
+1. pillow(~2.6.0)
+2. Numpy(~1.9.0)
+
+If the scripts throw `AttributeError: __float__`, make sure your pillow has jpeg support e.g. try:
+
+    $ sudo apt-get install libjpeg-dev
+    $ sudo pip uninstall pillow
+    $ sudo pip install pillow
 
 ##How to generate the results
 
@@ -9,7 +15,7 @@ Enter the `src` directory, run `python main.py`. It will use images under `img` 
 
 To test special configurations for a given image, for example, to test the image with index `0` (check `IMG_NAMES` in `util.py` for indexes) and `tmin = 0.2`, `Amax = 170`, `w = 15`, `r = 40`, run
 
-    python main.py -i 0 -t 0.2 -A 170 -w 15 -r 40
+    $ python main.py -i 0 -t 0.2 -A 170 -w 15 -r 40
 
 ## Naming convetion of the results
 
