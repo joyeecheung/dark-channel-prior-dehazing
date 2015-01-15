@@ -3,6 +3,7 @@
 
 import os
 import numpy as np
+
 from PIL import Image
 
 SRC_DIR = 'img'
@@ -12,7 +13,6 @@ IMG_NAMES = ("canon7.jpg", "cones.jpg", "flag.jpg", "forest.jpg",
              "ny12_photo.jpg", "ny17_photo.jpg", "pumpkins.jpg",
              "stadium1.jpg", "swan.jpg", "tiananmen1.png",
              "toys.jpg", "yellowmountain.jpg")
-
 
 def get_filenames():
     """Return list of tuples for source and template destination

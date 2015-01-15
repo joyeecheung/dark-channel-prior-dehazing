@@ -12,6 +12,8 @@
 %-----------------Figure Packages--------------------
 \usepackage{graphicx}                       % For figures
 \usepackage{stfloats}
+\usepackage{caption}
+\usepackage[export]{adjustbox}
 \usepackage[tight,footnotesize]{subfigure}  % Create subfigures, ie 1A, 1B
 %\usepackage{epsfig} % for postscript graphics files
 %------------------Math Packages------------------------
@@ -152,6 +154,16 @@ Algorithm~\ref{alg:hr} describes how to remove the haze from the image using the
 \section{Results and Analysis}
 
 The results in Figure~\ref{fig:result1} -~\ref{fig:result4} are generated with $t_{min} = 0.2, A_{max} = 220, w = 15, p=0.1, \omega=0.95,r=40, \epsilon=10^{-3}$. From top to bottom are the input hazy image, the dark channel, the estimated transmission map, the refined transmission map, the image dehazed with raw transmission map, and the image dehazed with refined transmission map.
+
+From the results, it is easy to see that this approach can remove most of the haze in the image. The refined transmission map, however, can lead to much better results than the raw estimates.
+
+Since generating the dark channel is somewhat similar to applying a min filter to the image, areas with low intensity in the dark channel will greatly affect its neighboring pixels. Therefore, when there are drastic transitions in the dark channel (e.g. between the sky/fog and salient objects), the area with low intensities will ``expand''. For example, in Figure~\ref{fig:result1}, the twigs in the dark channel of the forest are much thicker than in the original image. The leaves with good visibility in the front have low values in the dark channel, resulting in those small squares (usually with the same size as the window) in the dark channel map. Since the raw transmission map is actually calculated with the dark channel of the normalized image, this effect directly leads to the translucent borders around the twigs in the image dehazed with this raw estimate. Other images with this kind of drastic transitions in the dark channel also have the same problems. For example, the distant cones in the second image and the leaves in the last image of Figure~\ref{fig:result1}, the tall buildings in the first three images of Figure~\ref{fig:result2}, the roofs in the first image and the trunk in the second image of Figure~\ref{fig:result3}, etc. all have this kind of borders around them.
+
+From the results it is obvious to see that after guiding the transmission map with the original image, the refined transmission map preserves much more detail than the raw estimate. Most objects become distinguishable in this refined map, and the edges in the tranmission map are closer to those in the original image. Therefore, the images dehazed with this refined transmission map no longer have the weird borders as in those dehazed with the raw estimate.
+
+Since the haze will usually increase the brightness of the image (because they are usually white or gray-ish), the images with a large amount of haze will become relatively darker after dehazing, e.g. the first image in Figure~\ref{fig:result1}, the first two images in Figure~\ref{fig:result2},  the last image in Figure~\ref{fig:result4}. The images with just a thin layer of haze will have a better contrast after dehazing, e.g. the fourth image in Figure~\ref{fig:result1}, the fourth image in Figure~\ref{fig:result2}, the second and the third image in Figure~\ref{fig:result3}, and the first image in Figure~\ref{fig:result4}
+
+During the experiment, we discover that the choice of parameters is crutial in the quality of haze removal. When there are sky regions in the image, $\mathbf{A}$ tends to be large. In this case, we need a higher $t_{min}$ or lower $A_{min}$ to threshold the computation so as to restrict the recovered $\mathbf{J}$ in a reasonable range. To make the guidance more accurate, $r$ should be larger than $w/2$. Larger $r$ can lead to better results, but it will also slow down the process.
 
 \begin{figure}[H]
     \centering
@@ -343,6 +355,133 @@ The results in Figure~\ref{fig:result1} -~\ref{fig:result4} are generated with $
 
 \section{Discussion}
 
+In the sky region, $\tilde{t} \to 0$ and $A^c \to L - 1$. Therefore the equation:
+
+$$
+\mathbf{J}(\mathbf{x}) = \frac{\mathbf{I}(\mathbf{x}) - \mathbf{A}}{max(\tilde{t}(\mathbf{x}),t_0)} + \mathbf{A}
+$$
+
+is prone to error in images with sky regions. One possible solution is to set a higher $t_0$ than the one ($0.1$) suggested in \cite{he2009single}. Another solution is to set a lower $A_max$ (which is not mentioned in \cite{he2009single}). For different images, we need different $t_0$ and $A_max$ to produce ideal results. Some results with different configuration of  $t_0$ and $A_max$ are listed in Figure~\ref{fig:sp1} -\ref{fig:sp4}.
+
+\begin{figure}[htp]
+    \centering
+    \begin{minipage}[b]{0.319\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../img/IMG_8763.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{0.66\linewidth}
+       \centering
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-refinedt.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-refinedt-20-170-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-refinedt-50-190-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-refinedt-50-220-15-40.jpg}
+        \\
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-radiance-refinedt.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-radiance-refinedt-20-170-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-radiance-refinedt-50-190-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8763-radiance-refinedt-50-220-15-40.jpg}
+    \end{minipage}
+    
+    \captionsetup{singlelinecheck=off}
+    \caption{Leftmost image: the input hazy image. On the right side, the top row are tranmission maps with
+        $t_{min} = 0.2, A_{max} = 220$;
+        $t_{min} = 0.2, A_{max} = 170$;
+        $t_{min} = 0.5, A_{max} = 190$;
+        $t_{min} = 0.5, A_{max} = 220$;
+        the bottom row are corresponding dehazed images.
+    }
+    \label{fig:sp1}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \begin{minipage}[b]{0.319\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../img/IMG_8766.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{0.66\linewidth}
+       \centering
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-refinedt.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-refinedt-20-170-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-refinedt-50-190-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-refinedt-50-220-15-40.jpg}
+        \\
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-radiance-refinedt.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-radiance-refinedt-20-170-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-radiance-refinedt-50-190-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/IMG_8766-radiance-refinedt-50-220-15-40.jpg}
+    \end{minipage}
+    
+    \captionsetup{singlelinecheck=off}
+    \caption{Leftmost image: the input hazy image. On the right side, the top row are tranmission maps with
+        $t_{min} = 0.2, A_{max} = 220$;
+        $t_{min} = 0.2, A_{max} = 170$;
+        $t_{min} = 0.5, A_{max} = 190$;
+        $t_{min} = 0.5, A_{max} = 220$;
+        the bottom row are corresponding dehazed images.
+    }
+    \label{fig:sp2}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{0.319\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../img/ny17_photo.jpg}
+    \end{minipage}
+    \begin{minipage}[b]{0.66\linewidth}
+       \centering
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-refinedt.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-refinedt-20-170-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-refinedt-50-190-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-refinedt-50-220-15-40.jpg}
+        \\
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-radiance-refinedt.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-radiance-refinedt-20-170-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-radiance-refinedt-50-190-15-40.jpg}
+        \includegraphics[width=0.24\linewidth]{../result/ny17_photo-radiance-refinedt-50-220-15-40.jpg}
+    \end{minipage}
+    
+    \captionsetup{singlelinecheck=off}
+    \caption{Leftmost image: the input hazy image. On the right side, the top row are tranmission maps with
+        $t_{min} = 0.2, A_{max} = 220$;
+        $t_{min} = 0.2, A_{max} = 170$;
+        $t_{min} = 0.5, A_{max} = 190$;
+        $t_{min} = 0.5, A_{max} = 220$;
+        the bottom row are corresponding dehazed images.
+    }
+    \label{fig:sp3}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{minipage}[b]{0.319\linewidth}
+        \centering
+        \includegraphics[width=\linewidth]{../img/tiananmen1.png}
+    \end{minipage}
+    \begin{minipage}[b]{0.66\linewidth}
+       \centering
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-refinedt.png}
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-refinedt-20-170-15-40.png}
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-refinedt-50-190-15-40.png}
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-refinedt-50-220-15-40.png}
+        \\
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-radiance-refinedt.png}
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-radiance-refinedt-20-170-15-40.png}
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-radiance-refinedt-50-190-15-40.png}
+        \includegraphics[width=0.24\linewidth]{../result/tiananmen1-radiance-refinedt-50-220-15-40.png}
+    \end{minipage}
+   
+    \captionsetup{singlelinecheck=off}
+    \caption{Leftmost image: the input hazy image. On the right side, the top row are tranmission maps with
+        $t_{min} = 0.2, A_{max} = 220$;
+        $t_{min} = 0.2, A_{max} = 170$;
+        $t_{min} = 0.5, A_{max} = 190$;
+        $t_{min} = 0.5, A_{max} = 220$;
+        the bottom row are corresponding dehazed images.
+    }
+     \label{fig:sp4}
+\end{figure}
 \bibliography{dehaze}
 
 \bibliographystyle{acm}
