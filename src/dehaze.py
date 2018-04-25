@@ -55,7 +55,7 @@ def get_atmosphere(I, darkch, p):
     M, N = darkch.shape
     flatI = I.reshape(M * N, 3)
     flatdark = darkch.ravel()
-    searchidx = (-flatdark).argsort()[:M * N * p]  # find top M * N * p indexes
+    searchidx = (-flatdark).argsort()[:int(M * N * p)]  # find top M * N * p indexes
     print 'atmosphere light region:', [(i / N, i % N) for i in searchidx]
 
     # return the highest intensity for each channel
